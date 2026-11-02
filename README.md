@@ -66,3 +66,7 @@ Repeat checks with `npx tsx scripts/verify-workspace.ts` (creates and removes on
 
 The original specification is preserved in SPEC-original.md. Later user decisions override it: English UI, desktop, unified economy, no mobile access and no external notifications.
 
+
+## Learning guide
+See [docs/LEARNING.md](docs/LEARNING.md) for a guided reading order, small exercises and the Git workflow.
+
