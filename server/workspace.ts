@@ -2,7 +2,7 @@ import {Router} from 'express';
 import {z} from 'zod';
 import type {PrismaClient,Prisma} from './generated/prisma/client';
 import {profileSchema,defaults,schemas,parseRecord,type Entry,type Kind,type Settings} from '../shared/contracts';
-import {market,portfolio,alerts,records,profession,disenchant,farming,empirical} from '../shared/analytics';
+import {market,alerts,records,profession,disenchant,farming,empirical} from '../shared/analytics';
 import {analyzeReport} from './ai';
 import {execFile} from 'node:child_process';
 import path from 'node:path';
@@ -16,17 +16,15 @@ export async function report(db:PrismaClient,id:string){
  const scans=await db.scan.findMany({where:{region:p.region,realm:p.realm,faction:p.faction,phase:p.phase},orderBy:{observedAt:'desc'},take:200,include:{observations:true}});
  const settings=p.settings as Settings;
  const items=market(scans.map(s=>({...s,observedAt:s.observedAt.toISOString()})),settings);
- const ledger=portfolio(entries,settings,items);
  const opportunities=items.filter(i=>i.opportunity).map(i=>{
-  const invested=ledger.inventory.find(h=>h.itemId===i.itemId)?.cost??0;
-  let budget=Math.max(0,Math.min(ledger.cash,settings.exposureCopper-invested)),quantity=0,cost=0;
+  let budget=settings.exposureCopper,quantity=0,cost=0;
   for(const row of [...i.latest.rows].sort((a,b)=>a.unitCopper-b.unitCopper)){
    if(row.unitCopper>(i.maximum??0))continue;
    const take=Math.min(row.quantity,Math.floor(budget/row.unitCopper));quantity+=take;cost+=take*row.unitCopper;budget-=take*row.unitCopper;
   }
   return {itemId:i.itemId,name:i.name,quantity,cost,maximum:i.maximum,roi:i.roi,note:'Research ceiling, not an automatic buy order. Aggregate unit simulation may not match indivisible stacks.'};
  });
- return {generatedAt:new Date().toISOString(),profile:p,entries,items,opportunities,portfolio:ledger,alerts:alerts(entries,items),professions:records(entries,'recipe').map(r=>profession(r,items,settings)),disenchanting:records(entries,'deRule').map(r=>disenchant(r,items,settings)),farming:records(entries,'gathering').map(r=>farming(r,items,settings)),empirical:[...new Set(records(entries,'deResult').map(r=>r.itemId))].map(id=>({itemId:id,...empirical(records(entries,'deResult').filter(r=>r.itemId===id))})),coverage:{scans:scans.length,limit:200,note:'Latest 200 scans in this exact market. Listing quantities are observed supply, not completed sales.'}};
+ return {generatedAt:new Date().toISOString(),profile:p,entries,items,opportunities,alerts:alerts(entries,items),professions:records(entries,'recipe').map(r=>profession(r,items,settings)),disenchanting:records(entries,'deRule').map(r=>disenchant(r,items,settings)),farming:records(entries,'gathering').map(r=>farming(r,items,settings)),empirical:[...new Set(records(entries,'deResult').map(r=>r.itemId))].map(id=>({itemId:id,...empirical(records(entries,'deResult').filter(r=>r.itemId===id))})),coverage:{scans:scans.length,limit:200,note:'Latest 200 scans in this exact market. Listing quantities are observed supply, not completed sales.'}};
 }
 export function workspace(db:PrismaClient){
  const router=Router();
@@ -46,14 +44,13 @@ export function workspace(db:PrismaClient){
  });
  router.get('/profiles',async(_req,res)=>res.json(await db.profile.findMany({orderBy:{createdAt:'asc'}})));
  router.post('/profiles',async(req,res)=>{const p=profileSchema.parse(req.body);res.status(201).json(await db.profile.create({data:{...p,settings:json(p.settings)}}));});
- router.put('/profiles/:id',async(req,res)=>{const p=profileSchema.parse(req.body);const id=String(req.params.id);const existing=await db.profile.findUniqueOrThrow({where:{id}});if(['region','realm','faction','phase'].some(k=>existing[k as 'region']!==p[k as 'region']))throw Error('Create a new profile to change market scope; existing records must stay isolated');portfolio(toEntries(await db.record.findMany({where:{profileId:id}})),p.settings);res.json(await db.profile.update({where:{id},data:{name:p.name,settings:json(p.settings)}}));});
+ router.put('/profiles/:id',async(req,res)=>{const p=profileSchema.parse(req.body);const id=String(req.params.id);const existing=await db.profile.findUniqueOrThrow({where:{id}});if(['region','realm','faction','phase'].some(k=>existing[k as 'region']!==p[k as 'region']))throw Error('Create a new profile to change market scope; existing records must stay isolated');res.json(await db.profile.update({where:{id},data:{name:p.name,settings:json(p.settings)}}));});
  router.get('/profiles/:id/workspace',async(req,res)=>res.json(await report(db,String(req.params.id))));
  router.post('/profiles/:id/records',async(req,res)=>{
   const {kind,data}=bodySchema.parse(req.body),parsed=parseRecord(kind,data),profileId=String(req.params.id);
   const record=await db.$transaction(async tx=>{
    const p=await tx.profile.findUniqueOrThrow({where:{id:profileId}});
    const r=await tx.record.create({data:{profileId,kind,data:json(parsed)}});
-   portfolio(toEntries(await tx.record.findMany({where:{profileId}})),p.settings as Settings);
    await tx.audit.create({data:{recordId:r.id,revision:1,data:json(parsed),voided:false}});return r;
   },{isolationLevel:'Serializable'});res.status(201).json(record);
  });
@@ -66,7 +63,6 @@ export function workspace(db:PrismaClient){
    const parsed=parseRecord(old.kind as Kind,input.data),revision=old.revision+1;
    const r=await tx.record.update({where:{id},data:{data:json(parsed),revision,voided:input.voided}});
    const p=await tx.profile.findUniqueOrThrow({where:{id:profileId}});
-   portfolio(toEntries(await tx.record.findMany({where:{profileId}})),p.settings as Settings);
    await tx.audit.create({data:{recordId:id,revision,data:json(parsed),voided:input.voided}});return r;
   },{isolationLevel:'Serializable'});res.json(record);
  });
@@ -76,7 +72,7 @@ export function workspace(db:PrismaClient){
   if(format==='csv'){
    const cell=(s:unknown)=>{let v=String(s??'');if(/^[=+@\-\t\r]/.test(v))v="'"+v;return '"'+v.replaceAll('"','""')+'"';};
    const rows=[['id','kind','revision','voided','name','itemId','type','quantity','unitCopper','feesCopper','at','details'],...data.entries.map(e=>{const d=e.data as Record<string,unknown>;return [e.id,e.kind,e.revision,e.voided,d.name,d.itemId,d.type,d.quantity,d.unitCopper,d.feesCopper,d.at,JSON.stringify(e.data)];})];res.attachment('cleopatras-eye-ledger.csv').type('text/csv').send(rows.map(r=>r.map(cell).join(',')).join('\r\n'));
-  }else if(format==='text')res.attachment('cleopatras-eye-report.txt').type('text/plain').send(`Cleopatra’s Eye\n${data.profile.name} — ${data.profile.realm} / ${data.profile.faction} / ${data.profile.phase}\nGenerated: ${data.generatedAt}\nCash: ${data.portfolio.cash} copper\nRealized profit: ${data.portfolio.realized} copper\n${data.items.length} tracked items, ${data.coverage.scans} scans\n${data.alerts.map(a=>a.title+': '+a.message).join('\n')}\nUnknown fees, stale data and unavailable game rules prevent recommendations. Full data is available in JSON export.`);
+  }else if(format==='text')res.attachment('cleopatras-eye-report.txt').type('text/plain').send(`Cleopatra’s Eye\n${data.profile.name} — ${data.profile.realm} / ${data.profile.faction} / ${data.profile.phase}\nGenerated: ${data.generatedAt}\n${data.items.length} tracked items, ${data.coverage.scans} scans\n${data.alerts.map(a=>a.title+': '+a.message).join('\n')}\nUnknown fees, stale data and unavailable game rules prevent recommendations. Full data is available in JSON export.`);
   else res.attachment('cleopatras-eye-report.json').json(data);
  });
  return router;

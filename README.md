@@ -2,7 +2,7 @@
 
 <img src="public/cleopatra-logo.jpg" alt="Cleopatra logo" width="160">
 
-English interface. One shared economy for Americas / PvP / Alliance. No character selectors, mobile access, public hosting, external notifications or in-game automation.
+English interface. Market research for Americas / PvP / Alliance. No gold-balance or inventory tracking. No character selectors, mobile access, public hosting, external notifications or in-game automation.
 
 ## Everyday use
 
@@ -12,15 +12,15 @@ The executable is `.desktop/CleopatrasEye.exe`. This is a locally assembled Elec
 
 ## Implemented modules
 
-- Portfolio: purchases, sales, cash transfers, deposit losses, weighted-average inventory cost, realized profit and conditional asking-price valuations.
-- Revisions: record edits and voids preserve an audit trail. Invalid corrections that would create negative inventory roll back atomically.
+- Overview: tracked items, fresh observations, research candidates and in-app alerts. No gold, portfolio or inventory cards.
+- Revisions: record edits and voids preserve an audit trail. Observations can be entered without purchase or inventory records.
 - Market research: minimums, listing median/P25/P75, interactive price points, history and source/date information.
 - Timing: observed asking prices grouped by day/hour in the selected timezone; repeated-date evidence threshold. Separate last-30-day recorded sales analysis.
 - Depth: observed supply levels, cumulative quantities, buy-fill cost and slippage simulation. No inferred market-wide sales capacity; indivisible stacks require checking in game.
-- Flipping research: prior-scan reference, fee/evidence/staleness gates, unusual-price/supply flags, maximum unit entry and limits constrained by recorded cash and existing item exposure.
-- Disenchanting: verified-rule input, skill gate, expected net proceeds, ROI, loss probability and direct-sale comparison; actual outcomes consume inventory and produce materials. Individual trials provide empirical frequencies and marginal Wilson intervals. Batch records are excluded from frequency estimation.
+- Flipping research: prior-scan reference, fee/evidence/staleness gates, unusual-price/supply flags, maximum unit entry and independent per-item budgets chosen by the user, without estimating available gold.
+- Disenchanting: verified-rule input, skill gate, expected net proceeds, ROI, loss probability and direct-sale comparison; actual outcomes are independent research observations. Individual trials provide empirical frequencies and marginal Wilson intervals. Batch records are excluded from frequency estimation.
 - Professions: editable recipes and input/output quantities, material opportunity costs, extra costs and conditional net margins.
-- Farming: session duration, yields, costs and estimated gold/hour; recorded yields enter inventory.
+- Farming: session duration, yields, costs and estimated gold/hour; recorded yields are independent observations, not inventory movements.
 - Raid watchlist: entry/exit prices, budget, quantity, thesis, risks and scenario proceeds; economic calendar.
 - In-app alerts: configured price thresholds, watch targets, stale data and unusual observations. Evaluated on refresh; no external sends.
 - Reports: JSON, flattened ledger CSV and readable summary. CSV formula-leading values are escaped.
@@ -34,7 +34,7 @@ No real post-launch auction scan has been tested. Auctionator 341 price decoding
 
 No Forever fee schedule, recipe list, disenchant table, raid calendar or item catalogue is preloaded as verified. Enter evidence-backed rules before enabling corresponding calculations. The app validates structure and requires an evidence source; it cannot certify a user-entered claim. Realized sales are user records, not inferred from disappeared listings.
 
-Historical workspace analysis currently loads the latest 200 scans in the exact market. Time patterns are observational, not causal predictions. Prices and estimated returns exclude unknown future relisting/deposit losses unless entered as extra or actual costs. Disenchant cost is allocated equally per output unit. All entry forms use integer copper (10,000 copper = 1 gold). Empty ledgers start at the configured opening balance, not a balance read from WoW.
+Historical workspace analysis currently loads the latest 200 scans in the exact market. Time patterns are observational, not causal predictions. Prices and estimated returns exclude unknown future relisting/deposit losses unless entered as extra or actual costs. No personal inventory costing is performed. All entry forms use integer copper (10,000 copper = 1 gold). Legacy ledger data and its compatibility helpers remain stored but are not used by the active dashboard or opportunity budgets.
 
 ## Run / build
 
@@ -54,7 +54,7 @@ Daily address is localhost:4312. Development uses 4311/5173. The API binds only 
 
 ## Verification — 2026-11-02
 
-24 unit tests passed; strict TypeScript and production frontend build passed. PostgreSQL integration checks verified purchases/sales, accounting, oversell rollback, invalid void rollback, edits, audit revisions, scope checks and CSV export. Desktop smoke check exercised all 12 navigation pages, confirmed database connection and captured a rendered screenshot. Closing to tray was checked programmatically. Backup was restored successfully into an isolated recovery database. Login after a full Windows reboot has not been retested since desktop packaging.
+24 unit tests passed; strict TypeScript and production frontend build passed. Current PostgreSQL integration checks verify independent disenchant/farming observations, revisions, scope isolation, reports without balances and opportunity budgets with zero recorded gold. Desktop smoke check exercised all 11 navigation pages, confirmed database connection and captured a rendered screenshot. Closing to tray was checked programmatically. Backup was restored successfully into an isolated recovery database. Login after a full Windows reboot has not been retested since desktop packaging.
 
 Repeat checks with `npx tsx scripts/verify-workspace.ts` (creates and removes only its own synthetic workspace) and `.desktop/CleopatrasEye.exe --smoke-test` when the desktop UI is not already running. Test data is not used as live market evidence.
 

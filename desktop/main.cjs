@@ -65,7 +65,7 @@ async function connect(){
    }
    const uiError=await win.webContents.executeJavaScript('document.querySelector("[role=alert]")?.textContent');
    if(uiError)throw Error('Workspace UI error: '+uiError);
-   const pages=['Market research','Opportunities','Portfolio','Disenchanting','Professions','Farming','Raid watchlist','Alerts','Reports & AI','Import center','Settings','Overview'];
+   const pages=['Market research','Opportunities','Disenchanting','Professions','Farming','Raid watchlist','Alerts','Reports & AI','Import center','Settings','Overview'];
    for(const page of pages){
     await win.webContents.executeJavaScript(`Array.from(document.querySelectorAll('aside button')).find(b=>b.textContent===${JSON.stringify(page)}).click()`);
     await new Promise(resolve=>setTimeout(resolve,80));
