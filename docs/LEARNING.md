@@ -1,4 +1,4 @@
-# Learning with Forever Auction Intelligence
+# Learning with Cleopatra’s Eye
 
 This is a real project under development, not a reference implementation of every best practice. Read README.md for known limitations and verification status. Never use synthetic examples as live game evidence.
 
@@ -29,3 +29,6 @@ Use a separate branch for exercises. Do not experiment on your live trading data
 Commit one coherent change at a time. Describe what changed and why; include relevant test results in a pull request. Review diffs before pushing. Future development can be uploaded as explicit checkpoints in this chat; there is no autonomous watcher that publishes local files.
 
 Never commit `.env`, credentials, game SavedVariables, raw captures, database backups, logs, dependency folders or the local desktop runtime. `.gitignore` excludes these paths. Git history retains committed content even if a later change deletes it, so review before every commit.
+
+## Branding checkpoint
+The rebrand to Cleopatra's Eye is its own commit: supplied original logo, application icons, UI/title updates and desktop packaging. The original specification remains historical. The local folder/database identifiers stay stable to preserve installations and data.

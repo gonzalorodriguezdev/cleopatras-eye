@@ -38,7 +38,7 @@ try {
             if ($status.database -eq 'connected') {
                 if ($OpenBrowser) { Start-Process $address }
                 if (!$BackendOnly -and !$OpenBrowser) {
-                    $desktop = Join-Path $project '.desktop/ForeverAuctionIntelligence.exe'
+                    $desktop = Join-Path $project '.desktop/CleopatrasEye.exe'
                     if (Test-Path -LiteralPath $desktop) {
                         Start-Process $desktop -ArgumentList '--background' -WorkingDirectory $project -WindowStyle Hidden | Out-Null
                     }
@@ -53,7 +53,7 @@ try {
     Add-Content (Join-Path $project 'logs/startup-error.log') "$(Get-Date -Format o) $($_.Exception.Message)"
     if ($OpenBrowser) {
         Add-Type -AssemblyName System.Windows.Forms
-        [System.Windows.Forms.MessageBox]::Show('The app could not start. Check the logs folder in the project.', 'Forever Auction Intelligence') | Out-Null
+        [System.Windows.Forms.MessageBox]::Show('The app could not start. Check the logs folder in the project.', 'Cleopatra’s Eye') | Out-Null
     }
     exit 1
 } finally { $mutex.ReleaseMutex(); $mutex.Dispose() }

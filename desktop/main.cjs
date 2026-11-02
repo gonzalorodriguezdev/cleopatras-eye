@@ -7,7 +7,7 @@ const origin='http://127.0.0.1:4312';
 const smoke=process.argv.includes('--smoke-test');
 if(smoke)app.disableHardwareAcceleration();
 let win,tray,quitting=false,starting=false;
-app.setName('Forever Auction Intelligence');
+app.setName('Cleopatra’s Eye');
 app.setAppUserModelId('local.forever.auction.intelligence');
 if(!app.requestSingleInstanceLock()){app.quit();}else{
  app.on('second-instance',()=>{if(win){win.show();win.focus();}});
@@ -17,16 +17,16 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   session.defaultSession.setPermissionRequestHandler((_wc,_permission,callback)=>callback(false));
   session.defaultSession.setPermissionCheckHandler(()=>false);
   const icon=nativeImage.createFromPath(path.join(__dirname,'icon.png'));
-  win=new BrowserWindow({title:'Forever Auction Intelligence',width:1320,height:880,minWidth:760,minHeight:560,backgroundColor:'#0b1018',icon,show:!process.argv.includes('--background')&&!smoke,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
+  win=new BrowserWindow({title:'Cleopatra’s Eye',width:1320,height:880,minWidth:760,minHeight:560,backgroundColor:'#0b1018',icon,show:!process.argv.includes('--background')&&!smoke,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
   win.removeMenu();
   win.on('close',event=>{if(!quitting){event.preventDefault();win.hide();}});
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   win.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==origin)event.preventDefault();});
   win.webContents.on('will-attach-webview',event=>event.preventDefault());
   tray=new Tray(icon.resize({width:32,height:32}));
-  tray.setToolTip('Forever Auction Intelligence');
+  tray.setToolTip('Cleopatra’s Eye');
   tray.setContextMenu(Menu.buildFromTemplate([
-   {label:'Open Forever Auction Intelligence',click:()=>{win.show();win.focus();}},
+   {label:'Open Cleopatra’s Eye',click:()=>{win.show();win.focus();}},
    {label:'Retry connection',click:()=>void connect()},
    {type:'separator'},
    {label:'Quit desktop app',click:()=>app.quit()}
@@ -39,7 +39,7 @@ function fail(error){
  fs.mkdirSync(path.join(root,'logs'),{recursive:true});
  fs.appendFileSync(path.join(root,'logs','desktop-error.log'),new Date().toISOString()+' '+error.message+'\n');
  if(smoke){app.exit(1);return;}
- dialog.showErrorBox('Unable to open Forever Auction Intelligence','The app could not connect. Use Retry connection from the tray menu. Details are in the project logs folder.');
+ dialog.showErrorBox('Unable to open Cleopatra’s Eye','The app could not connect. Use Retry connection from the tray menu. Details are in the project logs folder.');
 }
 async function connect(){
  if(starting)return;

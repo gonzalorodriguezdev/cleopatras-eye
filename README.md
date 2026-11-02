@@ -1,12 +1,14 @@
-# Forever Auction Intelligence — local desktop edition
+# Cleopatra’s Eye — local desktop edition
+
+<img src="public/cleopatra-logo.jpg" alt="Cleopatra logo" width="160">
 
 English interface. One shared economy for Americas / PvP / Alliance. No character selectors, mobile access, public hosting, external notifications or in-game automation.
 
 ## Everyday use
 
-Open **Forever Auction Intelligence** from the Windows desktop shortcut. Closing its window hides it to the system tray. Double-click the tray icon to reopen it. **Quit desktop app** exits the desktop UI; the local API, file capture and Docker can continue running. The existing Windows Startup shortcut runs scripts/start-background.ps1, which starts the backend and then the desktop app in the tray.
+Open **Cleopatra’s Eye** from the Windows desktop shortcut. Closing its window hides it to the system tray. Double-click the tray icon to reopen it. **Quit desktop app** exits the desktop UI; the local API, file capture and Docker can continue running. The existing Windows Startup shortcut runs scripts/start-background.ps1, which starts the backend and then the desktop app in the tray.
 
-The executable is `.desktop/ForeverAuctionIntelligence.exe`. This is a locally assembled Electron runtime, not a signed standalone installer: it depends on this project folder, Node, installed node_modules, Docker and PostgreSQL. Do not move the folder without rebuilding the local desktop package and updating shortcuts. No automatic updater is installed.
+The executable is `.desktop/CleopatrasEye.exe`. This is a locally assembled Electron runtime, not a signed standalone installer: it depends on this project folder, Node, installed node_modules, Docker and PostgreSQL. Do not move the folder without rebuilding the local desktop package and updating shortcuts. No automatic updater is installed.
 
 ## Implemented modules
 
@@ -54,7 +56,7 @@ Daily address is localhost:4312. Development uses 4311/5173. The API binds only 
 
 24 unit tests passed; strict TypeScript and production frontend build passed. PostgreSQL integration checks verified purchases/sales, accounting, oversell rollback, invalid void rollback, edits, audit revisions, scope checks and CSV export. Desktop smoke check exercised all 12 navigation pages, confirmed database connection and captured a rendered screenshot. Closing to tray was checked programmatically. Backup was restored successfully into an isolated recovery database. Login after a full Windows reboot has not been retested since desktop packaging.
 
-Repeat checks with `npx tsx scripts/verify-workspace.ts` (creates and removes only its own synthetic workspace) and `.desktop/ForeverAuctionIntelligence.exe --smoke-test` when the desktop UI is not already running. Test data is not used as live market evidence.
+Repeat checks with `npx tsx scripts/verify-workspace.ts` (creates and removes only its own synthetic workspace) and `.desktop/CleopatrasEye.exe --smoke-test` when the desktop UI is not already running. Test data is not used as live market evidence.
 
 ## Sources and implementation notes
 

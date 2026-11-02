@@ -75,9 +75,9 @@ export function workspace(db:PrismaClient){
   const data=await report(db,String(req.params.id));const format=req.query.format;
   if(format==='csv'){
    const cell=(s:unknown)=>{let v=String(s??'');if(/^[=+@\-\t\r]/.test(v))v="'"+v;return '"'+v.replaceAll('"','""')+'"';};
-   const rows=[['id','kind','revision','voided','name','itemId','type','quantity','unitCopper','feesCopper','at','details'],...data.entries.map(e=>{const d=e.data as Record<string,unknown>;return [e.id,e.kind,e.revision,e.voided,d.name,d.itemId,d.type,d.quantity,d.unitCopper,d.feesCopper,d.at,JSON.stringify(e.data)];})];res.attachment('fai-ledger.csv').type('text/csv').send(rows.map(r=>r.map(cell).join(',')).join('\r\n'));
-  }else if(format==='text')res.attachment('fai-report.txt').type('text/plain').send(`Forever Auction Intelligence\n${data.profile.name} — ${data.profile.realm} / ${data.profile.faction} / ${data.profile.phase}\nGenerated: ${data.generatedAt}\nCash: ${data.portfolio.cash} copper\nRealized profit: ${data.portfolio.realized} copper\n${data.items.length} tracked items, ${data.coverage.scans} scans\n${data.alerts.map(a=>a.title+': '+a.message).join('\n')}\nUnknown fees, stale data and unavailable game rules prevent recommendations. Full data is available in JSON export.`);
-  else res.attachment('fai-report.json').json(data);
+   const rows=[['id','kind','revision','voided','name','itemId','type','quantity','unitCopper','feesCopper','at','details'],...data.entries.map(e=>{const d=e.data as Record<string,unknown>;return [e.id,e.kind,e.revision,e.voided,d.name,d.itemId,d.type,d.quantity,d.unitCopper,d.feesCopper,d.at,JSON.stringify(e.data)];})];res.attachment('cleopatras-eye-ledger.csv').type('text/csv').send(rows.map(r=>r.map(cell).join(',')).join('\r\n'));
+  }else if(format==='text')res.attachment('cleopatras-eye-report.txt').type('text/plain').send(`Cleopatra’s Eye\n${data.profile.name} — ${data.profile.realm} / ${data.profile.faction} / ${data.profile.phase}\nGenerated: ${data.generatedAt}\nCash: ${data.portfolio.cash} copper\nRealized profit: ${data.portfolio.realized} copper\n${data.items.length} tracked items, ${data.coverage.scans} scans\n${data.alerts.map(a=>a.title+': '+a.message).join('\n')}\nUnknown fees, stale data and unavailable game rules prevent recommendations. Full data is available in JSON export.`);
+  else res.attachment('cleopatras-eye-report.json').json(data);
  });
  return router;
 }
