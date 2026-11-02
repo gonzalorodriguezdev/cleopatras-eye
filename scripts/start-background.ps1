@@ -53,7 +53,7 @@ try {
     Add-Content (Join-Path $project 'logs/startup-error.log') "$(Get-Date -Format o) $($_.Exception.Message)"
     if ($OpenBrowser) {
         Add-Type -AssemblyName System.Windows.Forms
-        [System.Windows.Forms.MessageBox]::Show('The app could not start. Check the logs folder in the project.', 'Cleopatra’s Eye') | Out-Null
+        [System.Windows.Forms.MessageBox]::Show('The app could not start. Check the logs folder in the project.', "Cleopatra's Eye") | Out-Null
     }
     exit 1
 } finally { $mutex.ReleaseMutex(); $mutex.Dispose() }
