@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "region": "Americas",
+  "realm": "Synthetic test realm",
+  "faction": "Alliance",
+  "phase": "sample",
+  "source": "FAI synthetic fixture - not game data",
+  "observedAt": "2026-01-01T00:00:00Z",
+  "observations": [
+    {
+      "itemId": 1,
+      "name": "Synthetic item",
+      "unitCopper": 100,
+      "quantity": 2
+    }
+  ]
+}

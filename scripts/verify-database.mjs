@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const base='http://127.0.0.1:5173/api';
+const status=await fetch(base+'/status').then(r=>r.json());
+assert.equal(status.database,'connected');
+const sample=JSON.parse(await readFile(new URL('../examples/sample-scan.json',import.meta.url),'utf8'));
+const send=()=>fetch(base+'/scans',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sample)});
+const first=await send();assert.ok([201,409].includes(first.status));
+assert.equal((await send()).status,409);
+const list=async(phase)=>{const r=await fetch(base+'/scans?'+new URLSearchParams({region:sample.region,realm:sample.realm,faction:sample.faction,phase}));assert.equal(r.status,200);return r.json();};
+const saved=await list('sample');assert.ok(saved.some(s=>s.source===sample.source));
+assert.equal((await list('live')).length,0);
+assert.equal((await fetch(base+'/scans')).status,400);
+assert.equal((await fetch(base+'/scans',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sample,phase:undefined})})).status,400);
+console.log('PASS: database connectivity, persisted sample, duplicate rejection, environment isolation, required scope, invalid input rejection.');

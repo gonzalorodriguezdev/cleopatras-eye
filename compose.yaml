@@ -1,0 +1,13 @@
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fai
+      POSTGRES_USER: fai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set password in .env}
+    ports: ["127.0.0.1:15432:5432"]
+    volumes: ["fai-data:/var/lib/postgresql/data"]
+volumes:
+  fai-data:
+

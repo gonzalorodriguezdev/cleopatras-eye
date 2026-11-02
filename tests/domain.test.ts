@@ -1,0 +1,7 @@
+import {it,expect} from 'vitest';import {scanSchema,fingerprint} from '../server/domain';const input={"version":1,"region":"Americas","realm":"Synthetic test realm","faction":"Alliance","phase":"sample","source":"FAI synthetic fixture - not game data","observedAt":"2026-01-01T00:00:00Z","observations":[{"itemId":1,"name":"Synthetic item","unitCopper":100,"quantity":2}]};
+it('accepts labeled sample',()=>expect(scanSchema.safeParse(input).success).toBe(true));
+it('rejects missing phase',()=>expect(scanSchema.safeParse({...input,phase:undefined}).success).toBe(false));
+it('rejects future scan',()=>expect(scanSchema.safeParse({...input,observedAt:'2099-01-01T00:00:00Z'}).success).toBe(false));
+it('rejects fractional copper',()=>expect(scanSchema.safeParse({...input,observations:[{...input.observations[0],unitCopper:.5}]}).success).toBe(false));
+it('separates markets and environments',()=>{const s=scanSchema.parse(input);expect(fingerprint(s)).not.toBe(fingerprint({...s,phase:'live'}));expect(fingerprint(s)).not.toBe(fingerprint({...s,faction:'Horde'}));});
+it('deduplicates reordered observations',()=>{const s=scanSchema.parse({...input,observations:[...input.observations,{...input.observations[0],itemId:2}]});expect(fingerprint(s)).toBe(fingerprint({...s,observations:[...s.observations].reverse()}));});

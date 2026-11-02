@@ -1,0 +1,30 @@
+import {z} from 'zod';
+const copper=z.number().int().min(0).max(2_000_000_000);
+const itemId=z.number().int().positive().max(2_000_000_000);
+const quantity=z.number().int().min(1).max(1_000_000);
+const text=z.string().trim().min(1).max(300);
+const note=z.string().max(4000).default('');
+const date=z.iso.datetime().refine(v=>Date.parse(v)<=Date.now()+60_000,'Date cannot be in the future');
+export const settingsSchema=z.object({openingCopper:copper,feeRate:z.number().min(0).max(1),feesVerified:z.boolean(),feeEvidence:z.string().max(1000),enchantingSkill:z.number().int().min(0).max(1000),maxAgeHours:z.number().min(0.1).max(720),minScans:z.number().int().min(3).max(100),minRoi:z.number().min(0).max(10),exposureCopper:copper}).strict().refine(v=>!v.feesVerified||v.feeEvidence.trim().length>0,'Verified fees require a Forever source');
+export type Settings=z.infer<typeof settingsSchema>;
+export const defaults:Settings={openingCopper:0,feeRate:0,feesVerified:false,feeEvidence:'',enchantingSkill:0,maxAgeHours:24,minScans:3,minRoi:0.2,exposureCopper:10000};
+export const profileSchema=z.object({name:text,region:z.enum(['Americas','Europe','Asia']),realm:text,faction:z.enum(['Alliance','Horde','Neutral']),phase:z.enum(['live','beta','sample']),settings:settingsSchema}).strict();
+const material=z.object({itemId,name:text,quantity}).strict();
+const trade=z.object({type:z.enum(['buy','sell','deposit-loss','cash-in','cash-out']),itemId,name:text,quantity,unitCopper:copper,feesCopper:copper,strategy:z.enum(['flipping','stockpile','disenchanting','other']),at:date,note}).strict();
+const watch=z.object({itemId,name:text,entryCopper:copper,targetCopper:copper,budgetCopper:copper,quantity,exitDate:z.string().max(40),thesis:note,risks:note,bearCopper:copper,baseCopper:copper,bullCopper:copper}).strict();
+const recipe=z.object({name:text,profession:text,output:material,inputs:z.array(material).min(1).max(100),extraCostCopper:copper,verified:z.boolean(),evidence:z.string().max(1000),note}).strict();
+const deRule=z.object({itemId,name:text,requiredSkill:z.number().int().min(0).max(1000),verified:z.boolean(),evidence:z.string().max(1000),outcomes:z.array(z.object({probability:z.number().positive().max(1),materials:z.array(material).min(1).max(10)})).min(1).max(100),note}).strict().refine(v=>Math.abs(v.outcomes.reduce((s,o)=>s+o.probability,0)-1)<1e-6,'Outcome probabilities must sum to 1');
+const deResult=z.object({itemId,name:text,quantity,materials:z.array(material).min(1).max(30),at:date,note}).strict();
+const gathering=z.object({name:text,minutes:z.number().positive().max(1440),costCopper:copper,materials:z.array(material).min(1).max(100),at:date,note}).strict();
+const event=z.object({name:text,at:z.iso.datetime(),note,evidence:z.string().max(1000)}).strict();
+const alert=z.object({itemId,name:text,direction:z.enum(['below','above']),thresholdCopper:copper,enabled:z.boolean()}).strict();
+export const schemas={trade,watch,recipe,deRule,deResult,gathering,event,alert};
+export type Kind=keyof typeof schemas;
+export type Data<K extends Kind>=z.infer<(typeof schemas)[K]>;
+export type Entry={id:string;kind:Kind;data:unknown;revision:number;voided:boolean;createdAt:string};
+export type Profile=z.infer<typeof profileSchema>&{id:string};
+export function parseRecord(kind:Kind,data:unknown){
+ const result=schemas[kind].parse(data);
+ if('verified' in result&&result.verified&&!result.evidence.trim())throw Error('Verified rules require a Forever evidence source');
+ return result;
+}

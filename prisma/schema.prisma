@@ -1,0 +1,69 @@
+generator client {
+ provider = "prisma-client"
+ output = "../server/generated/prisma"
+}
+datasource db {
+ provider = "postgresql"
+}
+model Scan {
+ id String @id @default(uuid())
+ fingerprint String @unique
+ region String
+ realm String
+ faction String
+ phase String
+ source String
+ observedAt DateTime
+ importedAt DateTime @default(now())
+ raw String
+ observations Observation[]
+ @@index([region, realm, faction, phase, observedAt])
+}
+model Observation {
+ id String @id @default(uuid())
+ scanId String
+ scan Scan @relation(fields: [scanId], references: [id])
+ itemId Int
+ name String
+ unitCopper Int
+ quantity Int
+ @@index([itemId, scanId])
+}
+
+model Profile {
+ id String @id @default(uuid())
+ name String
+ region String
+ realm String
+ faction String
+ phase String
+ settings Json
+ createdAt DateTime @default(now())
+ records Record[]
+ @@index([region, realm, faction, phase])
+}
+
+model Record {
+ id String @id @default(uuid())
+ profileId String
+ profile Profile @relation(fields: [profileId], references: [id])
+ kind String
+ data Json
+ revision Int @default(1)
+ voided Boolean @default(false)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ audits Audit[]
+ @@index([profileId, kind, createdAt])
+}
+
+model Audit {
+ id String @id @default(uuid())
+ recordId String
+ record Record @relation(fields: [recordId], references: [id])
+ revision Int
+ data Json
+ voided Boolean
+ changedAt DateTime @default(now())
+ @@unique([recordId, revision])
+}

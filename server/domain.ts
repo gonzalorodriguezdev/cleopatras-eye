@@ -1,0 +1,4 @@
+import {z} from 'zod';import {createHash} from 'node:crypto';
+const positive=z.number().int().positive().max(2147483647);
+export const scanSchema=z.object({version:z.literal(1),region:z.enum(['Americas','Europe','Asia']),realm:z.string().trim().min(1).max(100),faction:z.enum(['Alliance','Horde','Neutral']),phase:z.enum(['beta','live','sample']),source:z.string().trim().min(1).max(200),observedAt:z.iso.datetime().refine(v=>Date.parse(v)<=Date.now()+60000,'Future scan'),observations:z.array(z.object({itemId:positive,name:z.string().min(1).max(200),unitCopper:positive,quantity:positive}).strict()).min(1).max(100000)}).strict();
+export function fingerprint(input:z.infer<typeof scanSchema>){return createHash('sha256').update(JSON.stringify({...input,observations:[...input.observations].sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))})).digest('hex');}
