@@ -5,12 +5,13 @@ const fs=require('node:fs');
 const root=fs.existsSync(path.join(__dirname,'local-config.json')) ? require('./local-config.json').project : path.resolve(__dirname,'..');
 const origin='http://127.0.0.1:4312';
 const smoke=process.argv.includes('--smoke-test');
-if(smoke)app.disableHardwareAcceleration();
+// Use the same renderer at Windows sign-in and during desktop verification.
+app.disableHardwareAcceleration();
 let win,tray,quitting=false,starting=false;
 app.setName('Cleopatra’s Eye');
 app.setAppUserModelId('local.forever.auction.intelligence');
 if(!app.requestSingleInstanceLock()){app.quit();}else{
- app.on('second-instance',()=>{if(win){win.show();win.focus();}});
+ app.on('second-instance',(_event,args)=>{if(win&&!args.includes('--background')){win.show();win.focus();}});
  app.on('before-quit',()=>{quitting=true;});
  app.on('window-all-closed',()=>{});
  app.whenReady().then(async()=>{

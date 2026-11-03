@@ -13,7 +13,9 @@ try {
     New-Item -ItemType Directory -Force $logs | Out-Null
     $docker = 'C:\Program Files\Docker\Docker\resources\bin\docker.exe'
     if (!(Get-Process 'Docker Desktop' -ErrorAction SilentlyContinue)) {
-        Start-Process 'C:\Program Files\Docker\Docker\Docker Desktop.exe' -ArgumentList '-Minimized' -WindowStyle Hidden
+        $launch = Start-Process $docker -ArgumentList 'desktop start --detach' -WindowStyle Hidden -PassThru
+        if (!$launch.WaitForExit(30000)) { throw 'Docker Desktop launcher timed out.' }
+        if ($launch.ExitCode -ne 0) { throw 'Docker Desktop could not start in the background.' }
     }
     $ready = $false
     for ($attempt=0; $attempt -lt 120; $attempt++) {
