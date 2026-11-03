@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Observation" ALTER COLUMN "itemId" SET DATA TYPE DOUBLE PRECISION;

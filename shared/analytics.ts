@@ -1,12 +1,13 @@
 import {schemas,type Entry,type Settings,type Data} from './contracts';
-export type Row={itemId:number;name:string;unitCopper:number;quantity:number};
-export type MarketScan={id:string;observedAt:string;source:string;observations:Row[]};
+export type Row={itemId:number;name:string;unitCopper:number;quantity:number|null;summary?:boolean};
+export type MarketScan={id:string;observedAt:string;source:string;importedAt?:string;observations:Row[]};
 export function quantile(values:number[],p:number){if(!values.length)return null;const a=[...values].sort((x,y)=>x-y);const i=(a.length-1)*p;return a[Math.floor(i)]+(a[Math.ceil(i)]-a[Math.floor(i)])*(i%1);}
 export function records<K extends keyof typeof schemas>(entries:Entry[],kind:K):Data<K>[] {return entries.filter(e=>!e.voided&&e.kind===kind).map(e=>schemas[kind].parse(e.data) as Data<K>);}
 export function market(scans:MarketScan[],settings:Settings,now=Date.now()){
- const ids=[...new Set(scans.flatMap(s=>s.observations.map(r=>r.itemId)))];
- return ids.map(itemId=>{
-  const history=scans.map(s=>({scan:s,rows:s.observations.filter(r=>r.itemId===itemId)})).filter(s=>s.rows.length).sort((a,b)=>Date.parse(a.scan.observedAt)-Date.parse(b.scan.observedAt)).map(({scan,rows})=>({at:scan.observedAt,scanId:scan.id,source:scan.source,min:Math.min(...rows.map(r=>r.unitCopper)),median:quantile(rows.map(r=>r.unitCopper),.5)!,p25:quantile(rows.map(r=>r.unitCopper),.25)!,p75:quantile(rows.map(r=>r.unitCopper),.75)!,units:rows.reduce((a,r)=>a+r.quantity,0),rows}));
+ const grouped=new Map<number,{scan:MarketScan;rows:Row[]}[]>();
+ for(const scan of scans){const rowsById=new Map<number,Row[]>();for(const row of scan.observations){const rows=rowsById.get(row.itemId)??[];rows.push(row);rowsById.set(row.itemId,rows);}for(const [id,rows] of rowsById){const history=grouped.get(id)??[];history.push({scan,rows});grouped.set(id,history);}}
+ return [...grouped].map(([itemId,observations])=>{
+  const history=observations.sort((a,b)=>Date.parse(a.scan.observedAt)-Date.parse(b.scan.observedAt)).map(({scan,rows})=>({at:scan.observedAt,importedAt:scan.importedAt??null,scanId:scan.id,source:scan.source,summary:rows.some(r=>r.summary),min:Math.min(...rows.map(r=>r.unitCopper)),median:rows.some(r=>r.summary)?null:quantile(rows.map(r=>r.unitCopper),.5),p25:rows.some(r=>r.summary)?null:quantile(rows.map(r=>r.unitCopper),.25),p75:rows.some(r=>r.summary)?null:quantile(rows.map(r=>r.unitCopper),.75),units:rows.some(r=>r.quantity===null)?null:rows.reduce((a,r)=>a+(r.quantity??0),0),rows}));
   const latest=history.at(-1)!;const prior=history.slice(0,-1);const reference=quantile(prior.map(h=>h.min),.5);
   const ageHours=(now-Date.parse(latest.at))/3600000;
   const stale=ageHours>settings.maxAgeHours;
@@ -17,8 +18,8 @@ export function market(scans:MarketScan[],settings:Settings,now=Date.now()){
   const median=quantile(prior.map(h=>h.min),.5);
   const mad=median===null?null:quantile(prior.map(h=>Math.abs(h.min-median)),.5);
   const priceAnomaly=prior.length>=settings.minScans&&median!==null&&((mad!>0&&Math.abs(latest.min-median)>6*mad!)||(mad===0&&(latest.min<median*.5||latest.min>median*2)));
-  const supplyReference=quantile(prior.map(h=>h.units),.5);
-  const supplyAnomaly=prior.length>=settings.minScans&&supplyReference!==null&&(latest.units<supplyReference*.2||latest.units>supplyReference*5);
+  const supplyReference=quantile(prior.flatMap(h=>h.units===null?[]:[h.units]),.5);
+  const supplyAnomaly=latest.units!==null&&prior.filter(h=>h.units!==null).length>=settings.minScans&&supplyReference!==null&&(latest.units<supplyReference*.2||latest.units>supplyReference*5);
   const anomalous=priceAnomaly||supplyAnomaly;
   const reasons=[...(stale?['Stale observation']:[]),...(prior.length<settings.minScans?['Insufficient independent scan history']:[]),...(!settings.feesVerified?['Auction fees not verified']:[]),...(anomalous?['Unusual price requires review']:[])];
   return {itemId,name:latest.rows[0].name,latest,history,reference,ageHours,stale,roi,maximum,anomalous,priceAnomaly,supplyAnomaly,reasons,opportunity:eligible&&!anomalous&&roi!==null&&roi>=settings.minRoi,liquidity:'Unknown — asking prices are not sales',risk:'Resale and listing costs remain uncertain'};
@@ -53,8 +54,9 @@ export function portfolio(entries:Entry[],settings:Settings,prices:ItemMarket[]=
  return {cash,realized,inventory,invested:inventory.reduce((s,h)=>s+h.cost,0),estimatedValue:inventory.every(h=>!h.quantity||h.value!==null)?inventory.reduce((s,h)=>s+(h.value??0),0):null,unrealized:inventory.every(h=>!h.quantity||h.unrealized!==null)?inventory.reduce((s,h)=>s+(h.unrealized??0),0):null,warning:cash<0?'Negative cash: reconcile opening balance and missing transactions':null};
 }
 export function depth(rows:Row[],requested:number){
+ if(rows.some(r=>r.summary||r.quantity===null))return {levels:[],requested,filled:0,unfilled:requested,cost:null,average:null,slippage:null,note:'Depth unavailable: community summaries do not contain listing price levels. Total supply may include bid-only auctions.'};
  let remaining=requested,cost=0,filled=0;const levels:{price:number;units:number;cumulative:number}[]=[];
- const grouped=new Map<number,number>();for(const r of rows)grouped.set(r.unitCopper,(grouped.get(r.unitCopper)??0)+r.quantity);
+ const grouped=new Map<number,number>();for(const r of rows)grouped.set(r.unitCopper,(grouped.get(r.unitCopper)??0)+(r.quantity??0));
  let cumulative=0;for(const [price,units] of [...grouped].sort((a,b)=>a[0]-b[0])){cumulative+=units;levels.push({price,units,cumulative});const take=Math.min(units,remaining);cost+=take*price;filled+=take;remaining-=take;}
  const cheapest=levels[0]?.price??null;
  return {levels,requested,filled,unfilled:remaining,cost,average:filled?cost/filled:null,slippage:filled&&cheapest?cost/filled/cheapest-1:null,note:'Observed supply only. Fill simulation assumes listed units can be bought individually. Sales capacity cannot be inferred.'};
@@ -96,8 +98,8 @@ export function empirical(results:Data<'deResult'>[]){
  return {trials:n,excludedBatchRecords:results.length-n,outcomes:[...counts].map(([outcome,k])=>{const z=1.96,p=k/n,den=1+z*z/n,center=(p+z*z/(2*n))/den,half=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/den;return {outcome,count:k,probability:p,low:Math.max(0,center-half),high:Math.min(1,center+half)};}),note:'Empirical frequencies with marginal 95% Wilson intervals; unseen outcomes are possible. Not verified game probabilities.'};
 }
 export function alerts(entries:Entry[],items:ItemMarket[]){
- const result=items.filter(i=>i.stale||i.anomalous||i.opportunity).map(i=>({id:'market-'+i.itemId,title:i.name,message:i.stale?'Market data is stale':i.anomalous?'Unusual price — review source before trading':'Potential discount against prior asking prices'}));
- for(const a of records(entries,'alert')){const p=items.find(i=>i.itemId===a.itemId&&!i.stale);if(a.enabled&&p&&(a.direction==='below'?p.latest.min<=a.thresholdCopper:p.latest.min>=a.thresholdCopper))result.push({id:'rule-'+a.itemId+'-'+a.direction,title:a.name,message:'Observed price reached your '+a.direction+' threshold'});}
- for(const w of records(entries,'watch')){const p=items.find(i=>i.itemId===w.itemId&&!i.stale);if(p&&p.latest.min>=w.targetCopper)result.push({id:'watch-'+w.itemId,title:w.name,message:'Watchlist target reached in asking prices'});}
- return result;
+ const result=items.filter(i=>i.stale||i.anomalous||i.opportunity).map(i=>({id:'market-'+i.itemId+'-'+i.latest.scanId,title:i.name,message:i.stale?'Market data is stale':i.anomalous?'Unusual price — review source before trading':'Potential discount against prior asking prices'}));
+ for(const a of records(entries,'alert')){const p=items.find(i=>i.itemId===a.itemId&&!i.stale);if(a.enabled&&p&&(a.direction==='below'?p.latest.min<=a.thresholdCopper:p.latest.min>=a.thresholdCopper))result.push({id:'rule-'+a.itemId+'-'+a.direction+'-'+a.thresholdCopper+'-'+p.latest.scanId,title:a.name,message:'Observed price reached your '+a.direction+' threshold'});}
+ for(const w of records(entries,'watch')){const p=items.find(i=>i.itemId===w.itemId&&!i.stale);if(p&&p.latest.min>=w.targetCopper)result.push({id:'watch-'+w.itemId+'-'+p.latest.scanId,title:w.name,message:'Watchlist target reached in asking prices'});}
+ return [...new Map(result.map(a=>[a.id,a])).values()];
 }

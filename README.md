@@ -72,3 +72,7 @@ The original specification is preserved in SPEC-original.md. Later user decision
 ## Learning guide
 See [docs/LEARNING.md](docs/LEARNING.md) for a guided reading order, small exercises and the Git workflow.
 
+
+## Automatic community data
+
+AuctionHouse.fyi now syncs the Americas/PvP/Alliance public snapshot every 15 minutes. Local observations remain primary per item; community summaries fill missing items without inventing order-book depth. Control it in Settings → Data sources. The current API dataset predates launch and is quarantined from live calculations. See [integration, source policy, tests and contribution guide](docs/auctionhouse-fyi.md). Auctionator raw capture remains independent; its price decoder still needs validation.

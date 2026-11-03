@@ -10,7 +10,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "desktop:package": "node scripts/package-desktop.cjs",
-    "test:integration": "tsx scripts/verify-workspace.ts"
+    "test:integration": "tsx scripts/verify-workspace.ts",
+    "test:sources": "tsx scripts/verify-sources.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",

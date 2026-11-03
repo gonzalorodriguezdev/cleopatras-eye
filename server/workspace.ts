@@ -1,3 +1,5 @@
+import {selectSources} from './price-sources';
+import {MARKET,PROVIDER} from './auctionhouse-protocol';
 import {Router} from 'express';
 import {z} from 'zod';
 import type {PrismaClient,Prisma} from './generated/prisma/client';
@@ -14,17 +16,24 @@ export async function report(db:PrismaClient,id:string){
  const p=await db.profile.findUniqueOrThrow({where:{id}});
  const entries=toEntries(await db.record.findMany({where:{profileId:id},orderBy:{createdAt:'asc'}}));
  const scans=await db.scan.findMany({where:{region:p.region,realm:p.realm,faction:p.faction,phase:p.phase},orderBy:{observedAt:'desc'},take:200,include:{observations:true}});
+ // Keep the last local scan for every item, including items outside the 200-scan history window.
+ const anchors=await db.$queryRaw<{scanId:string}[]>`SELECT DISTINCT ON (o."itemId") o."scanId" FROM "Observation" o JOIN "Scan" s ON s.id=o."scanId" WHERE s.region=${p.region} AND s.realm=${p.realm} AND s.faction=${p.faction} AND s.phase=${p.phase} ORDER BY o."itemId",s."observedAt" DESC,s."importedAt" DESC`;
+ const existingIds=new Set(scans.map(s=>s.id));const missingIds=[...new Set(anchors.map(a=>a.scanId))].filter(id=>!existingIds.has(id));
+ if(missingIds.length)scans.push(...await db.scan.findMany({where:{id:{in:missingIds}},include:{observations:true}}));
  const settings=p.settings as Settings;
- const items=market(scans.map(s=>({...s,observedAt:s.observedAt.toISOString()})),settings);
+ const remote=p.region==='Americas'&&p.realm==='PvP'&&p.faction==='Alliance'&&p.phase==='live'?await db.pricePoint.findMany({where:{provider:PROVIDER,market:MARKET,phase:'live'},orderBy:{observedAt:'desc'},take:200000}):[];
+ const selected=selectSources(scans.map(s=>({...s,observedAt:s.observedAt.toISOString(),importedAt:s.importedAt.toISOString()})),remote);
+ const items=market(selected,settings);
  const opportunities=items.filter(i=>i.opportunity).map(i=>{
+  if(i.latest.summary)return {itemId:i.itemId,name:i.name,quantity:null,cost:null,maximum:i.maximum,roi:i.roi,note:'Community minimum only. Check available listings in game; no purchase quantity can be inferred.'};
   let budget=settings.exposureCopper,quantity=0,cost=0;
   for(const row of [...i.latest.rows].sort((a,b)=>a.unitCopper-b.unitCopper)){
    if(row.unitCopper>(i.maximum??0))continue;
-   const take=Math.min(row.quantity,Math.floor(budget/row.unitCopper));quantity+=take;cost+=take*row.unitCopper;budget-=take*row.unitCopper;
+   const take=Math.min(row.quantity??0,Math.floor(budget/row.unitCopper));quantity+=take;cost+=take*row.unitCopper;budget-=take*row.unitCopper;
   }
   return {itemId:i.itemId,name:i.name,quantity,cost,maximum:i.maximum,roi:i.roi,note:'Research ceiling, not an automatic buy order. Aggregate unit simulation may not match indivisible stacks.'};
  });
- return {generatedAt:new Date().toISOString(),profile:p,entries,items,opportunities,alerts:alerts(entries,items),professions:records(entries,'recipe').map(r=>profession(r,items,settings)),disenchanting:records(entries,'deRule').map(r=>disenchant(r,items,settings)),farming:records(entries,'gathering').map(r=>farming(r,items,settings)),empirical:[...new Set(records(entries,'deResult').map(r=>r.itemId))].map(id=>({itemId:id,...empirical(records(entries,'deResult').filter(r=>r.itemId===id))})),coverage:{scans:scans.length,limit:200,note:'Latest 200 scans in this exact market. Listing quantities are observed supply, not completed sales.'}};
+ return {generatedAt:new Date().toISOString(),profile:p,entries,items,opportunities,alerts:alerts(entries,items),professions:records(entries,'recipe').map(r=>profession(r,items,settings)),disenchanting:records(entries,'deRule').map(r=>disenchant(r,items,settings)),farming:records(entries,'gathering').map(r=>farming(r,items,settings)),empirical:[...new Set(records(entries,'deResult').map(r=>r.itemId))].map(id=>({itemId:id,...empirical(records(entries,'deResult').filter(r=>r.itemId===id))})),coverage:{scans:scans.length,communityObservations:remote.length,communityItems:items.filter(i=>i.latest.summary).length,limit:200,note:'Local observations take priority per item, even when stale. Community summaries fill missing items; histories remain separate. Latest 200 local scans plus older local item anchors, and up to 200,000 community observations. Asking prices are not completed sales.'}};
 }
 export function workspace(db:PrismaClient){
  const router=Router();

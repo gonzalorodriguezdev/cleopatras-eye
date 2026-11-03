@@ -32,3 +32,7 @@ Never commit `.env`, credentials, game SavedVariables, raw captures, database ba
 
 ## Branding checkpoint
 The rebrand to Cleopatra's Eye is its own commit: supplied original logo, application icons, UI/title updates and desktop packaging. The original specification remains historical. The local folder/database identifiers stay stable to preserve installations and data.
+
+## Data sources checkpoint
+
+`server/auctionhouse-protocol.ts` validates the external contract; `server/auctionhouse.ts` owns polling, leases, retries and storage; `server/price-sources.ts` makes local precedence explicit. `shared/analytics.ts` reuses the existing calculations while blocking order-book claims for aggregate inputs. Read `docs/auctionhouse-fyi.md`, then `tests/auctionhouse.test.ts` and `scripts/verify-sources.ts` to learn the failure cases and provenance rules.

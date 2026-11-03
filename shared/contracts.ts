@@ -1,6 +1,6 @@
 import {z} from 'zod';
 const copper=z.number().int().min(0).max(2_000_000_000);
-const itemId=z.number().int().positive().max(2_000_000_000);
+const itemId=z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const quantity=z.number().int().min(1).max(1_000_000);
 const text=z.string().trim().min(1).max(300);
 const note=z.string().max(4000).default('');

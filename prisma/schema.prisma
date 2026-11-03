@@ -23,7 +23,7 @@ model Observation {
  id String @id @default(uuid())
  scanId String
  scan Scan @relation(fields: [scanId], references: [id])
- itemId Int
+ itemId Float
  name String
  unitCopper Int
  quantity Int
@@ -66,4 +66,49 @@ model Audit {
  voided Boolean
  changedAt DateTime @default(now())
  @@unique([recordId, revision])
+}
+
+model SourceSync {
+ id String @id
+ enabled Boolean @default(true)
+ intervalMinutes Int @default(15)
+ lastAttempt DateTime?
+ lastSuccess DateTime?
+ lastObserved DateTime?
+ nextAttempt DateTime @default(now())
+ leaseUntil DateTime @default(now())
+ failures Int @default(0)
+ requests Int @default(0)
+ inserted Int @default(0)
+ duplicates Int @default(0)
+ etag String?
+ blocked Boolean @default(false)
+ errors Json @default("[]")
+}
+
+model SourceSnapshot {
+ id String @id
+ provider String
+ market String
+ publishedAt DateTime
+ importedAt DateTime @default(now())
+ raw String
+ @@index([provider, market, publishedAt])
+}
+
+model PricePoint {
+ id String @id
+ provider String
+ market String
+ phase String
+ itemKey String
+ name String
+ unitCopper Float?
+ quantity Float?
+ observedAt DateTime
+ importedAt DateTime @default(now())
+ publishedAt DateTime
+ quality String
+ @@index([provider, market, phase, observedAt])
+ @@index([provider, market, itemKey, observedAt])
 }

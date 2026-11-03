@@ -71,6 +71,19 @@ async function connect(){
     await new Promise(resolve=>setTimeout(resolve,80));
     const heading=await win.webContents.executeJavaScript('document.querySelector("h1")?.textContent');
     if(heading!==page)throw Error('Navigation failed: '+page);
+    if(page==='Settings'){
+     for(let attempt=0;attempt<40;attempt++){
+      const loaded=await win.webContents.executeJavaScript('document.body.textContent.includes("Stored observations")');
+      if(loaded)break;
+      await new Promise(resolve=>setTimeout(resolve,100));
+     }
+     const loaded=await win.webContents.executeJavaScript('document.body.textContent.includes("Stored observations") && document.body.textContent.includes("Local scanner")');
+     if(!loaded)throw Error('Data sources panel failed to load');
+     win.show();
+     await new Promise(resolve=>setTimeout(resolve,700));
+     fs.mkdirSync(path.join(root,'logs'),{recursive:true});
+     fs.writeFileSync(path.join(root,'logs','data-sources-preview.png'),(await win.webContents.capturePage()).toPNG());
+    }
    }
    const title=await win.webContents.executeJavaScript('document.querySelector("h1")?.textContent');
    if(title!=='Overview')throw Error('Dashboard did not render');
