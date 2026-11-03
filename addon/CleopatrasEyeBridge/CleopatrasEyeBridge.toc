@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: Cleopatra's Eye Bridge
+## Notes: Records timestamped local Auctionator price observations. No automated game actions.
+## Version: 1.0.0
+## Dependencies: Auctionator
+## SavedVariables: CLEOPATRAS_EYE_LOCAL
+Bridge.lua

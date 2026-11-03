@@ -54,7 +54,7 @@ export function portfolio(entries:Entry[],settings:Settings,prices:ItemMarket[]=
  return {cash,realized,inventory,invested:inventory.reduce((s,h)=>s+h.cost,0),estimatedValue:inventory.every(h=>!h.quantity||h.value!==null)?inventory.reduce((s,h)=>s+(h.value??0),0):null,unrealized:inventory.every(h=>!h.quantity||h.unrealized!==null)?inventory.reduce((s,h)=>s+(h.unrealized??0),0):null,warning:cash<0?'Negative cash: reconcile opening balance and missing transactions':null};
 }
 export function depth(rows:Row[],requested:number){
- if(rows.some(r=>r.summary||r.quantity===null))return {levels:[],requested,filled:0,unfilled:requested,cost:null,average:null,slippage:null,note:'Depth unavailable: community summaries do not contain listing price levels. Total supply may include bid-only auctions.'};
+ if(rows.some(r=>r.summary||r.quantity===null))return {levels:[],requested,filled:0,unfilled:requested,cost:null,average:null,slippage:null,note:'Depth unavailable: aggregate summaries do not contain listing price levels. Total supply may include bid-only auctions.'};
  let remaining=requested,cost=0,filled=0;const levels:{price:number;units:number;cumulative:number}[]=[];
  const grouped=new Map<number,number>();for(const r of rows)grouped.set(r.unitCopper,(grouped.get(r.unitCopper)??0)+(r.quantity??0));
  let cumulative=0;for(const [price,units] of [...grouped].sort((a,b)=>a[0]-b[0])){cumulative+=units;levels.push({price,units,cumulative});const take=Math.min(units,remaining);cost+=take*price;filled+=take;remaining-=take;}

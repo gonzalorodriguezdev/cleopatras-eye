@@ -25,12 +25,12 @@ The executable is `.desktop/CleopatrasEye.exe`. This is a locally assembled Elec
 - In-app alerts: configured price thresholds, watch targets, stale data and unusual observations. Evaluated on refresh; no external sends.
 - Reports: JSON, flattened ledger CSV and readable summary. CSV formula-leading values are escaped.
 - Direct AI analysis: Responses API request with per-request key/model and explicit report-sharing consent. Key is not saved. Output is bounded and response storage disabled. Requires a valid API key/model and any applicable API billing. Tested with mocked transport only; no live charged request made.
-- Import: validated normalized listing JSON with atomic PostgreSQL insertion, source preservation and duplicate rejection. Raw Auctionator file capture is separate from price ingestion.
+- Import: validated normalized listing JSON with atomic PostgreSQL insertion, source preservation and duplicate rejection. Passive bridge full scans and summaries import automatically; historical raw Auctionator archives remain separate.
 - Backup: Settings button or scripts/backup.ps1. RestoreCopy restores into a NEW database, never overwrites the active database.
 
 ## Data limits — not hidden functionality
 
-No real post-launch auction scan has been tested. Auctionator 341 price decoding is NOT implemented: its local raw file is captured byte-for-byte, but it stores CBOR daily aggregates rather than individual listings. See docs/auctionator.md. The JSON import works with explicitly normalized listing data. No community API has been integrated or authenticated.
+No real post-launch auction scan has been tested. Auctionator archives now have a bounded data-only Lua/CBOR decoder. The installed Cleopatra’s Eye Bridge passively records timestamped summaries and completed-scan listings for automatic import after /reload or logout. It requires a one-time WoW client restart to discover the new addon. The first actual game scan still needs validation. See [local integration](docs/auctionator.md). The public AuctionHouse.fyi integration runs independently as a fallback.
 
 No Forever fee schedule, recipe list, disenchant table, raid calendar or item catalogue is preloaded as verified. Enter evidence-backed rules before enabling corresponding calculations. The app validates structure and requires an evidence source; it cannot certify a user-entered claim. Realized sales are user records, not inferred from disappeared listings.
 
@@ -54,7 +54,7 @@ Daily address is localhost:4312. Development uses 4311/5173. The API binds only 
 
 ## Verification — 2026-11-02
 
-24 unit tests passed; strict TypeScript and production frontend build passed. Current PostgreSQL integration checks verify independent disenchant/farming observations, revisions, scope isolation, reports without balances and opportunity budgets with zero recorded gold. Desktop smoke check exercised all 11 navigation pages, confirmed database connection and captured a rendered screenshot. Closing to tray was checked programmatically. Backup was restored successfully into an isolated recovery database. Login after a full Windows reboot has not been retested since desktop packaging.
+63 unit tests passed; strict TypeScript and production frontend build passed. Current PostgreSQL integration checks verify independent disenchant/farming observations, revisions, scope isolation, reports without balances and opportunity budgets with zero recorded gold. Desktop smoke check exercised all 11 navigation pages, confirmed database connection and captured a rendered screenshot. Closing to tray was checked programmatically. Backup was restored successfully into an isolated recovery database. Login after a full Windows reboot has not been retested since desktop packaging.
 
 Repeat checks with `npx tsx scripts/verify-workspace.ts` (creates and removes only its own synthetic workspace) and `.desktop/CleopatrasEye.exe --smoke-test` when the desktop UI is not already running. Test data is not used as live market evidence.
 
@@ -75,4 +75,4 @@ See [docs/LEARNING.md](docs/LEARNING.md) for a guided reading order, small exerc
 
 ## Automatic community data
 
-AuctionHouse.fyi now syncs the Americas/PvP/Alliance public snapshot every 15 minutes. Local observations remain primary per item; community summaries fill missing items without inventing order-book depth. Control it in Settings → Data sources. The current API dataset predates launch and is quarantined from live calculations. See [integration, source policy, tests and contribution guide](docs/auctionhouse-fyi.md). Auctionator raw capture remains independent; its price decoder still needs validation.
+AuctionHouse.fyi now syncs the Americas/PvP/Alliance public snapshot every 15 minutes. Local observations remain primary per item; community summaries fill missing items without inventing order-book depth. Control it in Settings → Data sources. The current API dataset predates launch and is quarantined from live calculations. See [integration, source policy, tests and contribution guide](docs/auctionhouse-fyi.md). Auctionator capture and the installed passive bridge remain independent; the first official in-game scan still needs validation.

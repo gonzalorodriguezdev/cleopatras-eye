@@ -1,4 +1,5 @@
-import {selectSources} from './price-sources';
+import {LOCAL_PROVIDER} from './auctionator';
+import {selectSources,localEvidence} from './price-sources';
 import {MARKET,PROVIDER} from './auctionhouse-protocol';
 import {Router} from 'express';
 import {z} from 'zod';
@@ -22,10 +23,16 @@ export async function report(db:PrismaClient,id:string){
  if(missingIds.length)scans.push(...await db.scan.findMany({where:{id:{in:missingIds}},include:{observations:true}}));
  const settings=p.settings as Settings;
  const remote=p.region==='Americas'&&p.realm==='PvP'&&p.faction==='Alliance'&&p.phase==='live'?await db.pricePoint.findMany({where:{provider:PROVIDER,market:MARKET,phase:'live'},orderBy:{observedAt:'desc'},take:200000}):[];
- const selected=selectSources(scans.map(s=>({...s,observedAt:s.observedAt.toISOString(),importedAt:s.importedAt.toISOString()})),remote);
+ const localPoints=p.region==='Americas'&&p.realm==='PvP'&&p.faction==='Alliance'&&p.phase==='live'?await db.pricePoint.findMany({where:{provider:LOCAL_PROVIDER,market:MARKET,phase:'live'},orderBy:{observedAt:'desc'},take:200000}):[];
+ if(p.region==='Americas'&&p.realm==='PvP'&&p.faction==='Alliance'&&p.phase==='live'){
+  const latest=await db.$queryRaw<{id:string}[]>`SELECT DISTINCT ON ("itemKey") id FROM "PricePoint" WHERE provider=${LOCAL_PROVIDER} AND market=${MARKET} AND phase='live' ORDER BY "itemKey","observedAt" DESC,"importedAt" DESC`;
+  const loaded=new Set(localPoints.map(p=>p.id));const missing=latest.map(p=>p.id).filter(id=>!loaded.has(id));if(missing.length)localPoints.push(...await db.pricePoint.findMany({where:{id:{in:missing}}}));
+ }
+ const localSummaries=selectSources([],localPoints);
+ const selected=selectSources(localEvidence(scans.map(s=>({...s,observedAt:s.observedAt.toISOString(),importedAt:s.importedAt.toISOString()})),localSummaries),remote);
  const items=market(selected,settings);
  const opportunities=items.filter(i=>i.opportunity).map(i=>{
-  if(i.latest.summary)return {itemId:i.itemId,name:i.name,quantity:null,cost:null,maximum:i.maximum,roi:i.roi,note:'Community minimum only. Check available listings in game; no purchase quantity can be inferred.'};
+  if(i.latest.summary)return {itemId:i.itemId,name:i.name,quantity:null,cost:null,maximum:i.maximum,roi:i.roi,note:'Aggregate minimum only. Check available listings in game; no purchase quantity can be inferred.'};
   let budget=settings.exposureCopper,quantity=0,cost=0;
   for(const row of [...i.latest.rows].sort((a,b)=>a.unitCopper-b.unitCopper)){
    if(row.unitCopper>(i.maximum??0))continue;
@@ -33,7 +40,7 @@ export async function report(db:PrismaClient,id:string){
   }
   return {itemId:i.itemId,name:i.name,quantity,cost,maximum:i.maximum,roi:i.roi,note:'Research ceiling, not an automatic buy order. Aggregate unit simulation may not match indivisible stacks.'};
  });
- return {generatedAt:new Date().toISOString(),profile:p,entries,items,opportunities,alerts:alerts(entries,items),professions:records(entries,'recipe').map(r=>profession(r,items,settings)),disenchanting:records(entries,'deRule').map(r=>disenchant(r,items,settings)),farming:records(entries,'gathering').map(r=>farming(r,items,settings)),empirical:[...new Set(records(entries,'deResult').map(r=>r.itemId))].map(id=>({itemId:id,...empirical(records(entries,'deResult').filter(r=>r.itemId===id))})),coverage:{scans:scans.length,communityObservations:remote.length,communityItems:items.filter(i=>i.latest.summary).length,limit:200,note:'Local observations take priority per item, even when stale. Community summaries fill missing items; histories remain separate. Latest 200 local scans plus older local item anchors, and up to 200,000 community observations. Asking prices are not completed sales.'}};
+ return {generatedAt:new Date().toISOString(),profile:p,entries,items,opportunities,alerts:alerts(entries,items),professions:records(entries,'recipe').map(r=>profession(r,items,settings)),disenchanting:records(entries,'deRule').map(r=>disenchant(r,items,settings)),farming:records(entries,'gathering').map(r=>farming(r,items,settings)),empirical:[...new Set(records(entries,'deResult').map(r=>r.itemId))].map(id=>({itemId:id,...empirical(records(entries,'deResult').filter(r=>r.itemId===id))})),coverage:{scans:scans.length,communityObservations:remote.length,localObservations:localPoints.length,communityItems:items.filter(i=>i.latest.source===PROVIDER).length,limit:200,note:'Local observations take priority per item, even when stale. Community summaries fill missing items; histories remain separate. Latest 200 local scans plus older local item anchors, and up to 200,000 community observations. Asking prices are not completed sales.'}};
 }
 export function workspace(db:PrismaClient){
  const router=Router();

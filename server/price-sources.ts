@@ -15,3 +15,10 @@ export function selectSources(local:MarketScan[],remote:PricePoint[]):MarketScan
  }
  return result;
 }
+
+// Choose one local history per item: use listing evidence when equally recent.
+export function localEvidence(listings:MarketScan[],summaries:MarketScan[]):MarketScan[]{
+ const latest=new Map<number,number>();for(const scan of listings)for(const row of scan.observations)latest.set(row.itemId,Math.max(latest.get(row.itemId)??0,Date.parse(scan.observedAt)));
+ const useSummary=new Set<number>();for(const scan of summaries)for(const row of scan.observations)if(Date.parse(scan.observedAt)>(latest.get(row.itemId)??0))useSummary.add(row.itemId);
+ return [...listings.map(s=>({...s,observations:s.observations.filter(r=>!useSummary.has(r.itemId))})),...summaries.filter(s=>s.observations.some(r=>useSummary.has(r.itemId)))].filter(s=>s.observations.length);
+}

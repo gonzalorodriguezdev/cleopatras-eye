@@ -7,8 +7,9 @@ export class SavedVariablesCapture {
   private previous?: string;
   private captured?: string;
   private busy = false;
+  private successfulStatus?: {state:string;lastCapturedAt:string|null;error:string|null};
   status = {state: 'waiting', lastCapturedAt: null as string|null, error: null as string|null};
-  constructor(private source: string, private destination: string) {}
+  constructor(private source: string, private destination: string, private process?: (bytes:Buffer)=>Promise<{state:string}>) {}
   async poll() {
     if (this.busy) return;
     this.busy = true;
@@ -20,7 +21,7 @@ export class SavedVariablesCapture {
       if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) return;
       const hash = createHash('sha256').update(bytes).digest('hex');
       if (hash !== this.previous) { this.previous = hash; return; }
-      if (hash === this.captured) return;
+      if (hash === this.captured) { if(this.successfulStatus)this.status=this.successfulStatus; return; }
       await mkdir(this.destination, {recursive:true});
       const file = path.join(this.destination, hash + '.lua');
       try { await writeFile(file, bytes, {flag:'wx'}); } catch(e) {
@@ -28,11 +29,15 @@ export class SavedVariablesCapture {
       }
       const capturedAt = new Date().toISOString();
       try {
-        await writeFile(path.join(this.destination, hash+'.json'), JSON.stringify({hash,capturedAt,source:this.source,sourceModifiedAt:after.mtime.toISOString(),bytes:bytes.length,phase:'unclassified',market:'unverified',priceImport:'pending decoder validation'},null,2), {flag:'wx'});
+        await writeFile(path.join(this.destination, hash+'.json'), JSON.stringify({hash,capturedAt,source:this.source,sourceModifiedAt:after.mtime.toISOString(),bytes:bytes.length,phase:'unclassified',market:'unverified',priceImport:this.process?'processed separately; consult capture status':'archive only'},null,2), {flag:'wx'});
       } catch(e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e; }
+      const result=this.process?await this.process(bytes):{state:'archived'};
       this.captured = hash;
-      this.status = {state:'archived — awaiting price decoder',lastCapturedAt:capturedAt,error:null};
-    } catch(e) { this.status = {...this.status,state:'error',error:e instanceof Error?e.message:'Capture failed'}; }
+      this.status = {state:result.state,lastCapturedAt:capturedAt,error:null};
+      this.successfulStatus=this.status;
+    } catch(e) { this.status = (e as NodeJS.ErrnoException).code==='ENOENT'
+      ? {...this.status,state:'Waiting for first saved file — scan, then /reload or logout',error:null}
+      : {...this.status,state:'error',error:e instanceof Error?e.message:'Capture failed'}; }
     finally { this.busy = false; }
   }
 }

@@ -1,3 +1,8 @@
+import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {SavedVariablesCapture} from '../server/capture';
+import {importLocal,LOCAL_PROVIDER} from '../server/auctionator';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
@@ -33,7 +38,28 @@ try{
  await db.scan.create({data:{fingerprint:'synthetic-local',source:'LOCAL synthetic scanner',region:'Americas',realm:'PvP',faction:'Alliance',phase:'live',observedAt:new Date(now-10*86400000),raw:'synthetic',observations:{create:[{itemId:1,name:'Local fixture',unitCopper:700,quantity:2}]}}});workspace=await report(db,p.id);assert.equal(workspace.items.find(i=>i.itemId===1)?.latest.min,700);assert.equal(workspace.items.find(i=>i.itemId===1)?.stale,true);assert.equal(workspace.items.find(i=>i.itemId===2)?.latest.source,'AuctionHouse.fyi');
  await source.configure({enabled:true,intervalMinutes:15});now+=3600000;status=200;payload={...payload,market:MARKET,at:now,scan:now,now,rows:[[2,null,0,now],[3,100,1,Date.parse('2026-10-11T00:00:00Z')]]};await source.sync();workspace=await report(db,p.id);assert.equal(workspace.items.length,1,'absence/prelaunch excluded, local kept');assert.equal((await source.status()).prelaunch,1);
  const lastCalls=calls;now+=3600000;status=304;await Promise.all([source.sync(),source.sync()]);assert.equal(calls,lastCalls+1,'shared lease permits only one request');
- console.log('PASS: isolated PostgreSQL integration: scheduler, dedup, report/flipping/DE, local priority, absence, prelaunch, failures, backoff, disabling and concurrent lease.');
+ // Complete local-file pipeline in this disposable test database, without community requests.
+ await source.configure({enabled:false,intervalMinutes:15});
+ const folder=await mkdtemp(path.join(os.tmpdir(),'cleopatra-local-test-'));
+ try{
+  const file=path.join(folder,'CleopatrasEyeBridge.lua');
+  const bytes=Buffer.from('CLEOPATRAS_EYE_LOCAL={version=1,markets={["PvP Alliance"]={realm="PvP",faction="Alliance",items={["2"]={price=321,quantity=12,at='+Math.floor(Date.now()/1000)+',name="SYNTHETIC local material"}}}}}');
+  await writeFile(file,bytes);const watcher=new SavedVariablesCapture(file,path.join(folder,'archive'),bytes=>importLocal(db,bytes));
+  await watcher.poll();await watcher.poll();assert.equal(watcher.status.error,null);const count=await db.pricePoint.count({where:{provider:LOCAL_PROVIDER}});assert.equal(count,1);
+  await watcher.poll();const restarted=new SavedVariablesCapture(file,path.join(folder,'archive'),bytes=>importLocal(db,bytes));await restarted.poll();await restarted.poll();assert.equal(await db.pricePoint.count({where:{provider:LOCAL_PROVIDER}}),1);
+  // Current real clock is before launch. Only this isolated synthetic fixture is promoted for report-path testing.
+  await db.pricePoint.updateMany({where:{provider:LOCAL_PROVIDER},data:{phase:'live'}});
+  workspace=await report(db,p.id);assert.equal(workspace.items.find(i=>i.itemId===2)?.latest.min,321);assert.equal(workspace.items.find(i=>i.itemId===2)?.latest.source,LOCAL_PROVIDER);assert.equal(workspace.items.find(i=>i.itemId===2)?.latest.summary,true);
+  await writeFile(file,'CLEOPATRAS_EYE_LOCAL={broken');await watcher.poll();await watcher.poll();assert.equal(watcher.status.state,'error');assert.equal(await db.pricePoint.count({where:{provider:LOCAL_PROVIDER}}),1);
+  await writeFile(file,bytes);await watcher.poll();await watcher.poll();assert.equal(watcher.status.error,null);
+  const full=Buffer.from('CLEOPATRAS_EYE_LOCAL={version=1,markets={},scans={{at='+Math.floor(Date.now()/1000)+',realm="PvP",faction="Alliance",rows={{itemId=2,name="SYNTHETIC herb",price=34,quantity=3,buyout=100},{itemId=2,name="SYNTHETIC herb",price=50,quantity=2,buyout=100}}}}}');
+  await writeFile(file,full);await watcher.poll();await watcher.poll();assert.equal(watcher.status.error,null);
+  const scanCount=await db.scan.count({where:{source:'Auctionator local listings'}});assert.equal(scanCount,1);await importLocal(db,full);assert.equal(await db.scan.count({where:{source:'Auctionator local listings'}}),1);
+  await db.scan.updateMany({where:{source:'Auctionator local listings'},data:{phase:'live'}});
+  workspace=await report(db,p.id);assert.equal(workspace.items.find(i=>i.itemId===2)?.latest.summary,false);assert.equal(workspace.items.find(i=>i.itemId===2)?.latest.rows.length,2);
+
+ }finally{await rm(folder,{recursive:true,force:true});}
+ console.log('PASS: isolated PostgreSQL integration: scheduler, dedup, report/flipping/DE, local priority, absence, prelaunch, failures, backoff, disabling, concurrent lease, local file watcher, restart dedup, corruption recovery and full listing depth.');
 }finally{stop?.();await db.$disconnect();await sql.end();await admin.query(`DROP DATABASE "${database}" WITH (FORCE)`);await admin.end();}
 
 

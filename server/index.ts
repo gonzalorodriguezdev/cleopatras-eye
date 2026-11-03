@@ -1,3 +1,4 @@
+import {inspectAuctionator,importLocal} from './auctionator';
 import {AuctionHouseSync} from './auctionhouse';
 import {workspace,ensureDefaultProfile} from './workspace';
 import {ZodError} from 'zod';
@@ -5,10 +6,12 @@ import {SavedVariablesCapture} from './capture';
 import path from 'node:path';
 import 'dotenv/config';import express from 'express';import {PrismaClient} from './generated/prisma/client';import {PrismaPg} from '@prisma/adapter-pg';import {scanSchema,fingerprint} from './domain';
 const db=process.env.DATABASE_URL?new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL})}):null;
-const capture=process.env.AUCTIONATOR_FILE ? new SavedVariablesCapture(process.env.AUCTIONATOR_FILE,path.resolve('data/raw/auctionator')) : null;
-if(capture){void capture.poll();setInterval(()=>void capture.poll(),5000).unref();}
+const capture=process.env.AUCTIONATOR_FILE ? new SavedVariablesCapture(process.env.AUCTIONATOR_FILE,path.resolve('data/raw/auctionator'),async bytes=>inspectAuctionator(bytes)) : null;
+const bridgePath=process.env.AUCTIONATOR_FILE?path.join(path.dirname(process.env.AUCTIONATOR_FILE),'CleopatrasEyeBridge.lua'):null;
+const bridge=bridgePath&&db?new SavedVariablesCapture(bridgePath,path.resolve('data/raw/cleopatra-bridge'),bytes=>importLocal(db,bytes)):null;
+for(const watcher of [capture,bridge])if(watcher){void watcher.poll();setInterval(()=>void watcher.poll(),5000).unref();}
 const app=express();app.use(express.json({limit:'20mb'}));app.use((req,res,next)=>{if(!['127.0.0.1','localhost'].includes(req.hostname)){res.sendStatus(403);return;}const o=req.get('origin');if(o&&!['http://127.0.0.1:5173','http://localhost:5173','http://127.0.0.1:4312'].includes(o)){res.sendStatus(403);return;}next();});
-app.get('/api/capture',(_req,res)=>res.json(capture?.status ?? {state:'not configured'}));
+app.get('/api/capture',(_req,res)=>res.json({...bridge?.status,archive:capture?.status??{state:'not configured'},state:bridge?.status.state??'not configured'}));
 app.get('/api/status',async(_req,res)=>{try{if(!db)throw Error();await db.$queryRaw`SELECT 1`;res.json({database:'connected'});}catch{res.json({database:'unavailable'});}});
 app.post('/api/scans/validate',(req,res)=>{const r=scanSchema.safeParse(req.body);res.status(r.success?200:400).json(r.success?{valid:true,count:r.data.observations.length}:{error:r.error.issues});});
 app.post('/api/scans',async(req,res,next)=>{const r=scanSchema.safeParse(req.body);if(!r.success){res.status(400).json({error:r.error.issues});return;}if(!db){res.status(503).json({error:'Database unavailable. Nothing saved.'});return;}const {observations,version,...data}=r.data;try{const s=await db.scan.create({data:{...data,observedAt:new Date(data.observedAt),fingerprint:fingerprint(r.data),raw:JSON.stringify(req.body),observations:{create:observations}}});res.status(201).json({id:s.id});}catch(e){if((e as {code?:string}).code==='P2002'){res.status(409).json({error:'Duplicate scan'});return;}next(e);}});
