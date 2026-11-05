@@ -1,5 +1,11 @@
 -- Passive observer only: never calls auction queries, buys, posts or changes Auctionator data.
 local installed = false
+local function IsConfiguredMarket()
+  local realm = GetRealmName()
+  -- Exact live-client alias confirmed in game on 2026-11-05. Never match arbitrary PvP realms.
+  return (realm == "PvP" or realm == "CAMWOW US2 Realm 6 PvP Alliance")
+    and UnitFactionGroup("player") == "Alliance"
+end
 local function Install()
   if installed or not Auctionator or not Auctionator.Database or type(Auctionator.Database.SetPrice) ~= "function" then return end
   installed = true
@@ -10,9 +16,8 @@ local function Install()
   hooksecurefunc(Auctionator.Database, "SetPrice", function(_, key, price, available)
     if type(key) ~= "string" or not key:match("^%d+$") then return end
     if type(price) ~= "number" or price <= 0 then return end
-    local realm = GetRealmName()
-    local faction = UnitFactionGroup("player")
-    if realm ~= "PvP" or faction ~= "Alliance" then return end
+    if not IsConfiguredMarket() then return end
+    local realm, faction = "PvP", "Alliance"
     local scope = realm .. " " .. faction
     local market = CLEOPATRAS_EYE_LOCAL.markets[scope]
     if not market then
@@ -28,7 +33,7 @@ local function Install()
     local listener = {}
     function listener:ReceiveEvent(event, raw)
       if event ~= Auctionator.FullScan.Events.ScanComplete or type(raw) ~= "table" then return end
-      if GetRealmName() ~= "PvP" or UnitFactionGroup("player") ~= "Alliance" then return end
+      if not IsConfiguredMarket() then return end
       local rows = {}
       for _, auction in ipairs(raw) do
         local info = auction.auctionInfo or auction.replicateInfo

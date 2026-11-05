@@ -40,3 +40,7 @@ The new bounded Lua-data and CBOR decoders read the original database safely for
 - **Still requires the first official in-game scan:** actual game loading, Auctionator event payloads and displayed game prices must be checked on the live client. Mocked tests and an empty historical file cannot prove that runtime path. No game scan was performed by the assistant.
 
 Installed source references: `Source/Database/Mixin.lua`, `Source/Variables/Main.lua`, `Source/Constants/Main.lua`, `Source/Utilities/DBKeyFromLink.lua`, `Source_LegacyAH/FullScan/Mixins/Frame.lua`, `Source_ModernAH/FullScan/Mixins/Frame.lua`, and `Source_LegacyAH/Tabs/Auctionator/Mixins/ScanStatus.lua`.
+
+## Live realm alias verified on November 5, 2026
+
+The live client reports `CAMWOW US2 Realm 6 PvP Alliance`. The bridge accepts this exact alias and canonical `PvP`, always requiring Alliance. Both are stored under the configured PvP/Alliance market. Other realms are rejected. Reload the UI after updating the bridge, complete a new full scan, and reload again to save the observations. Earlier daily prices are not assigned invented scan timestamps.
