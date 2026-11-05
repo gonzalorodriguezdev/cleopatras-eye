@@ -1,5 +1,17 @@
 -- Passive observer only: never calls auction queries, buys, posts or changes Auctionator data.
 local installed = false
+local function Diagnose(state)
+  if type(CLEOPATRAS_EYE_LOCAL) ~= "table" then
+    CLEOPATRAS_EYE_LOCAL = { version = 1, markets = {} }
+  end
+  local diagnostic = CLEOPATRAS_EYE_LOCAL.diagnostic or {}
+  CLEOPATRAS_EYE_LOCAL.diagnostic = diagnostic
+  diagnostic.build = "2026-11-05.2"
+  diagnostic.state = state
+  diagnostic.realm = GetRealmName()
+  diagnostic.faction = UnitFactionGroup("player")
+  return diagnostic
+end
 local function IsConfiguredMarket()
   local realm = GetRealmName()
   -- Exact live-client alias confirmed in game on 2026-11-05. Never match arbitrary PvP realms.
@@ -13,7 +25,10 @@ local function Install()
     CLEOPATRAS_EYE_LOCAL = { version = 1, markets = {} }
   end
   CLEOPATRAS_EYE_LOCAL.markets = CLEOPATRAS_EYE_LOCAL.markets or {}
+  Diagnose("price hook installed")
   hooksecurefunc(Auctionator.Database, "SetPrice", function(_, key, price, available)
+    local diagnostic = Diagnose("price event received")
+    diagnostic.priceEvents = (diagnostic.priceEvents or 0) + 1
     if type(key) ~= "string" or not key:match("^%d+$") then return end
     if type(price) ~= "number" or price <= 0 then return end
     if not IsConfiguredMarket() then return end
@@ -33,6 +48,8 @@ local function Install()
     local listener = {}
     function listener:ReceiveEvent(event, raw)
       if event ~= Auctionator.FullScan.Events.ScanComplete or type(raw) ~= "table" then return end
+      local diagnostic = Diagnose("full scan received")
+      diagnostic.fullScans = (diagnostic.fullScans or 0) + 1
       if not IsConfiguredMarket() then return end
       local rows = {}
       for _, auction in ipairs(raw) do
@@ -50,17 +67,20 @@ local function Install()
       CLEOPATRAS_EYE_LOCAL.lastError=nil
     end
     Auctionator.EventBus:Register(listener,{Auctionator.FullScan.Events.ScanComplete})
+    Diagnose("price hook and scan listener installed")
   end
 end
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function()
+  Diagnose("waiting for Auctionator database")
   -- Auctionator initializes its database late; keep a bounded passive initialization retry.
   local attempts = 0
   local ticker
   ticker = C_Timer.NewTicker(1, function()
     attempts = attempts + 1
     Install()
+    if not installed and attempts >= 60 then Diagnose("Auctionator database unavailable after 60 seconds") end
     if installed or attempts >= 60 then ticker:Cancel() end
   end)
 end)
