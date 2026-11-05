@@ -43,4 +43,4 @@ Installed source references: `Source/Database/Mixin.lua`, `Source/Variables/Main
 
 ## Live realm alias verified on November 5, 2026
 
-The live client reports `CAMWOW US2 Realm 6 PvP Alliance`. The bridge accepts this exact alias and canonical `PvP`, always requiring Alliance. Both are stored under the configured PvP/Alliance market. Other realms are rejected. Reload the UI after updating the bridge, complete a new full scan, and reload again to save the observations. Earlier daily prices are not assigned invented scan timestamps.
+The live client reports `CAMWOW US2 Realm 6 PvP`. The bridge accepts this exact alias and canonical `PvP`, always requiring Alliance. Both are stored under the configured PvP/Alliance market. Other realms are rejected. Reload the UI after updating the bridge, complete a new full scan, and reload again to save the observations. Earlier daily prices are not assigned invented scan timestamps.

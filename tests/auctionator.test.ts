@@ -20,13 +20,13 @@ describe('timestamped local observations',()=>{
  it('does not infer a timestamp from capture time',()=>expect(decodeLocal(fixture(100,1791733552),now)[0].phase).toBe('prelaunch'));
  it('rejects mismatched scope, future prices, and incomplete rows',()=>{expect(()=>decodeLocal(Buffer.from(fixture().toString().replace('faction="Alliance"','faction="Horde"')),now)).toThrow();expect(()=>decodeLocal(fixture(100,now/1000+120),now)).toThrow();expect(()=>decodeLocal(Buffer.from(fixture().toString().replace('at='+now/1000+',','')),now)).toThrow();});
  it('deduplicates saved-file reloads by original observation',()=>expect(decodeLocal(fixture(),now)[0].id).toBe(decodeLocal(fixture(),now+10000)[0].id));
- it.each(['PvP', 'CAMWOW US2 Realm 6 PvP Alliance'])('captures the configured market %s without game actions',(realmName)=>{
+ it.each(['PvP', 'CAMWOW US2 Realm 6 PvP'])('captures the configured market %s without game actions',(realmName)=>{
   const {lua,lauxlib,lualib,to_luastring}=createRequire(import.meta.url)('fengari');const L=lauxlib.luaL_newstate();lualib.luaL_openlibs(L);
   const setup=`realm=${JSON.stringify(realmName)};faction="Alliance";hooks=0;Auctionator={Database={SetPrice=function() end},FullScan={Events={ScanComplete="complete"}},EventBus={Register=function(self,obj) receiver=obj end}};C_Item={GetItemInfo=function() return "Peacebloom" end};GetRealmName=function() return realm end;UnitFactionGroup=function() return faction end;time=function() return 1793966400 end;GetServerTime=time;CreateFrame=function() return {RegisterEvent=function() end,SetScript=function(self,event,fn) login=fn end} end;C_Timer={NewTicker=function(_,fn) tick=fn;return {Cancel=function() cancelled=true end} end};hooksecurefunc=function(object,name,fn) hooks=hooks+1;hook=fn end;`;
   const assertions=`login();tick();assert(hooks==1 and cancelled);hook(nil,"123",100,20);assert(CLEOPATRAS_EYE_LOCAL.markets["PvP Alliance"].items["123"].at==1793966400);hook(nil,"gr:123:suffix",5,1);assert(CLEOPATRAS_EYE_LOCAL.markets["PvP Alliance"].items["gr:123:suffix"]==nil);faction="Horde";hook(nil,"124",4,1);assert(CLEOPATRAS_EYE_LOCAL.markets["PvP Alliance"].items["124"]==nil);login();tick();assert(hooks==1);faction="Alliance";receiver:ReceiveEvent("complete",{{itemLink="item:123:0",auctionInfo={[1]="Peacebloom",[3]=3,[10]=100}}});assert(CLEOPATRAS_EYE_LOCAL.scans[1].rows[1].price==34);assert(CLEOPATRAS_EYE_LOCAL.scans[1].rows[1].buyout==100);receiver:ReceiveEvent("complete",{{itemLink="item:123:0",replicateInfo={[1]="Peacebloom",[3]=1,[10]=90}}});receiver:ReceiveEvent("complete",{{itemLink="item:123:0",auctionInfo={[1]="Peacebloom",[3]=1,[10]=80}}});assert(#CLEOPATRAS_EYE_LOCAL.scans==2);`;
   const rejectedMarkets=`
 local previous=CLEOPATRAS_EYE_LOCAL.scans[2]
-for _, otherRealm in ipairs({"PvE", "CAMWOW EU Realm 6 PvP Alliance", "CAMWOW US2 Realm 7 PvP Alliance"}) do
+for _, otherRealm in ipairs({"PvE", "CAMWOW US2 Realm 6 PvP Alliance", "CAMWOW EU Realm 6 PvP", "CAMWOW US2 Realm 7 PvP"}) do
 realm=otherRealm
 hook(nil,"999",10,1)
 receiver:ReceiveEvent("complete",{{itemLink="item:999:0",auctionInfo={[1]="Other",[3]=1,[10]=10}}})

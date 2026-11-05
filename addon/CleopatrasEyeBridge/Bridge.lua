@@ -6,7 +6,7 @@ local function Diagnose(state)
   end
   local diagnostic = CLEOPATRAS_EYE_LOCAL.diagnostic or {}
   CLEOPATRAS_EYE_LOCAL.diagnostic = diagnostic
-  diagnostic.build = "2026-11-05.2"
+  diagnostic.build = "2026-11-05.3"
   diagnostic.state = state
   diagnostic.realm = GetRealmName()
   diagnostic.faction = UnitFactionGroup("player")
@@ -15,7 +15,7 @@ end
 local function IsConfiguredMarket()
   local realm = GetRealmName()
   -- Exact live-client alias confirmed in game on 2026-11-05. Never match arbitrary PvP realms.
-  return (realm == "PvP" or realm == "CAMWOW US2 Realm 6 PvP Alliance")
+  return (realm == "PvP" or realm == "CAMWOW US2 Realm 6 PvP")
     and UnitFactionGroup("player") == "Alliance"
 end
 local function Install()
